@@ -1,0 +1,55 @@
+---
+- hosts: all
+  remote_user: root
+  become: true
+  become_method: sudo
+
+  vars:
+    download_url: none
+
+  tasks:
+    - name: Updating /etc/systemd/system/vault.service file
+      copy:
+        content: |
+                 [Unit]
+                 Description=SystemD Vault Service
+                 Requires=consul-online.target
+                 After=consul-online.target
+
+                 [Service]
+                 Restart=on-failure
+                 PermissionsStartOnly=true
+                 ExecStartPre=/sbin/setcap 'cap_ipc_lock=+ep' /usr/local/bin/vault
+                 ExecStart=/usr/local/bin/vault server -config /etc/vault.d
+                 ExecReload=/bin/kill -HUP $MAINPID
+                 KillSignal=SIGTERM
+                 User=vault
+                 Group=vault
+
+                 [Install]
+                 WantedBy=multi-user.target
+        dest: /etc/systemd/system/vault.service
+        mode: 0644
+
+    - name: Vault /etc/ssl/vault directory
+      file: path=/etc/ssl/vault state=directory mode=0755 owner=vault group=vault
+
+    - name: Vault config /etc/vault.d directories
+      file: path=/etc/vault.d/plugin state=directory mode=0755 owner=vault group=vault
+
+    - name: Add /etc/vault.d/vault.hcl file into config directory
+      copy:
+        content: |
+                   backend "consul" {
+                     address = "127.0.0.1:8500"
+                     path    = "vault/"
+                     token   = "a4c878e5-a0eb-48ef-b6b4-00e18a146bf2"
+                   }
+                   listener "tcp" {
+                     address     = "0.0.0.0:8200"
+                     tls_disable = 1
+                   }
+                   plugin_directory = "/etc/vault.d/plugin"
+                   ui=true
+        dest: /etc/vault.d/vault.hcl
+        mode: 0644

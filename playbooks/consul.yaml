@@ -5,7 +5,7 @@
   become_method: sudo
 
   vars:
-    url: none
+    download_url: none
 
   tasks:
     - name: Updating /etc/systemd/system/consul.service file
@@ -91,7 +91,7 @@
 
     - name: Installing consul
       get_url:
-        url: '{{ url }}'
+        url: '{{ download_url }}'
         dest: /tmp/consul.zip
 
     - name: Extracting consul
@@ -130,3 +130,9 @@
                  }
         dest: /etc/consul.d/consul.json
         mode: 0644
+
+    - name: Start and make consul service enabled at boot time
+      systemd:
+        name: consul.service
+        enabled: yes
+        state: started

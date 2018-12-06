@@ -26,14 +26,15 @@ Vagrant.configure("2") do |config|
 
             server.vm.provision "ansible_local" do |ansible|
                 ansible.playbook = "/vagrant/playbooks/consul.yaml"
-                ansible.extra_vars = {url: get_consul_stable_url()}
+                ansible.extra_vars = {download_url: get_stable_url('consul')}
             end
 
-            server.vm.provision "shell", path: "configureconsul.sh"
-            server.vm.provision "shell", inline: "sudo systemctl enable consul.service"
-            server.vm.provision "shell", inline: "sudo systemctl start consul"
-            server.vm.provision "shell", path: "vaultsystemd.sh"
-            server.vm.provision "shell", path: "vaultdownload.sh", args: ["1.0.0-rc1", "/usr/local/bin"]
+            server.vm.provision "ansible_local" do |ansible|
+                ansible.playbook = "/vagrant/playbooks/vault.yaml"
+                ansible.extra_vars = {download_url: get_stable_url('vault')}
+            end
+
+            # server.vm.provision "shell", path: "configureconsul.sh" # sth pending
             
               ##  API Provisioning
             if "#{i}" == "7"

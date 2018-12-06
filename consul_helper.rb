@@ -1,8 +1,8 @@
 require 'json'
 require 'net/http'
 
-def get_consul_stable_url(os='linux', arch='amd64')
-    url = 'https://releases.hashicorp.com/consul/index.json'
+def get_stable_url(hashicorp_product, os='linux', arch='amd64')
+    url = 'https://releases.hashicorp.com/%s/index.json' % hashicorp_product
     begin
         response = Net::HTTP.get_response(URI.parse(url))
         url = response['location']
