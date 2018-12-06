@@ -1,0 +1,26 @@
+---
+- hosts: all
+  remote_user: root
+  become: true
+  become_method: sudo
+
+  vars:
+    username: anonymous
+    groupname: none
+
+  tasks:
+    - name: Add '{{ groupname }}' group
+      group:
+          name: '{{ groupname }}'
+          system: yes
+          state: present
+
+    - name: Add the user '{{ username }}' with primary group '{{ groupname }}'
+      user:
+          name: '{{ username }}'
+          comment: '{{ username }} user on Vagrant for demo'
+          group: '{{ groupname }}'
+          home: '/srv/{{ username }}'
+          shell: '/usr/bin/false'
+          system: yes
+          create_home: no

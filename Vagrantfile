@@ -1,6 +1,8 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+require_relative 'consul_helper.rb'
+
 Vagrant.configure("2") do |config|
     config.ssh.insert_key = false
   ##  This example uses three boxes. instance5, instance6, and instance7. 
@@ -10,15 +12,27 @@ Vagrant.configure("2") do |config|
             server.vm.box_version = "201805.15.0"
             server.vm.hostname = "instance#{i}"
             server.vm.network :private_network, ip: "192.168.13.3#{i}"
-            server.vm.provision "shell", path: "account.sh", args: "vault"
-            server.vm.provision "shell", path: "account.sh", args: "consul"
-            server.vm.provision "shell", path: "prereqs.sh"
-            server.vm.provision "shell", path: "consulsystemd.sh"
-            server.vm.provision "shell", path: "vaultsystemd.sh"
-            server.vm.provision "shell", path: "consuldownload.sh"
+
+            server.vm.provision "ansible_local" do |ansible|
+                ansible.playbook = "/vagrant/playbooks/prereqs.yaml"
+            end
+
+            ['consul', 'consul', 'vault', 'vault'].each_slice(2) do |user, primary_group|
+                server.vm.provision "ansible_local" do |ansible|
+                    ansible.playbook = "/vagrant/playbooks/add_user.yaml"
+                    ansible.extra_vars = {'username': user, 'groupname': primary_group}
+                end
+            end
+
+            server.vm.provision "ansible_local" do |ansible|
+                ansible.playbook = "/vagrant/playbooks/consul.yaml"
+                ansible.extra_vars = {url: get_consul_stable_url()}
+            end
+
             server.vm.provision "shell", path: "configureconsul.sh"
             server.vm.provision "shell", inline: "sudo systemctl enable consul.service"
             server.vm.provision "shell", inline: "sudo systemctl start consul"
+            server.vm.provision "shell", path: "vaultsystemd.sh"
             server.vm.provision "shell", path: "vaultdownload.sh", args: ["1.0.0-rc1", "/usr/local/bin"]
             
               ##  API Provisioning
@@ -27,7 +41,7 @@ Vagrant.configure("2") do |config|
                 server.vm.provision "shell", inline: "echo 'Provisioning Consul ACLs via this host: '; hostname"
                 server.vm.provision "shell", path: "provision_consul/scripts/acl/consul_acl.sh"
                 server.vm.provision "shell", path: "provision_consul/scripts/acl/consul_acl_vault.sh"
-                else
+            else
                 server.vm.provision "shell", inline: "echo 'Not provisioning Consul ACLs via this host: '; hostname"
             end
         end

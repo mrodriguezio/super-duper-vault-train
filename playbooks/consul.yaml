@@ -1,0 +1,132 @@
+---
+- hosts: all
+  remote_user: root
+  become: true
+  become_method: sudo
+
+  vars:
+    url: none
+
+  tasks:
+    - name: Updating /etc/systemd/system/consul.service file
+      copy:
+        content: |
+                 [Unit]
+                 Description=Consul Agent
+                 Requires=network-online.target
+                 After=network-online.target
+
+                 [Service]
+                 Restart=on-failure
+                 ExecStart=/usr/local/bin/consul agent -config-dir /etc/consul.d
+                 ExecReload=/bin/kill -HUP $MAINPID
+                 KillSignal=SIGTERM
+                 User=consul
+                 Group=consul
+
+                 [Install]
+                 WantedBy=multi-user.target
+        dest: /etc/systemd/system/consul.service
+        mode: 0644
+
+    - name: Updating /etc/systemd/system/consul-online.service file
+      copy:
+        content: |
+                 [Unit]
+                 Description=Consul Online
+                 Requires=consul.service
+                 After=consul.service
+
+                 [Service]
+                 Type=oneshot
+                 ExecStart=/usr/bin/consul-online.sh
+                 User=consul
+                 Group=consul
+
+                 [Install]
+                 WantedBy=consul-online.target multi-user.target
+        dest: /etc/systemd/system/consul-online.service
+        mode: 0644
+
+    - name: Updating /usr/bin/consul-online.sh file
+      copy:
+        content: |
+                 #!/usr/bin/env bash
+
+                 set -e
+                 set -o pipefail
+
+                 localconsul=127.0.0.1:8500
+                 # waitForConsulToBeAvailable loops until the local Consul agent returns a 200
+                 # response at the /v1/operator/raft/configuration endpoint.
+                 #
+                 # Parameters:
+                 #     None
+                 function waitForConsulToBeAvailable() {
+                     local consul_addr=127.0.0.1:8500
+                     local consul_conf_addr=$consul_addr/v1/operator/raft/configuration
+                     local consul_leader_http_code
+
+                     consul_leader_http_code=$(curl --silent --output /dev/null --write-out "%{http_code}" "${consul_conf_addr}") || consul_leader_http_code=""
+
+                     while [ "x${consul_leader_http_code}" != "x200" ] ; do
+                         echo "Waiting for Consul to get a leader..."
+                         sleep 5
+                         consul_leader_http_code=$(curl --silent --output /dev/null --write-out "%{http_code}" "${consul_conf_addr}") || consul_leader_http_code=""
+                     done
+                 }
+
+                 waitForConsulToBeAvailable "${localconsul}"
+        dest: /usr/bin/consul-online.sh
+        mode: 0755
+
+    - name: Updating /etc/systemd/system/consul-online.target file
+      copy:
+        content: |
+                 [Unit]
+                 Description=Consul Online
+                 RefuseManualStart=true
+        dest: /etc/systemd/system/consul-online.target
+        mode: 0644
+
+    - name: Installing consul
+      get_url:
+        url: '{{ url }}'
+        dest: /tmp/consul.zip
+
+    - name: Extracting consul
+      unarchive:
+        src: /tmp/consul.zip
+        dest: /usr/local/bin
+        mode: 0755
+        owner: consul
+        group: consul
+
+    - name: Consul config directory
+      file: path=/etc/consul.d state=directory mode=0755 owner=consul group=consul
+    - name: Add consul data directory
+      file: path=/opt/consul/data state=directory mode=0765 owner=consul group=consul recurse=yes
+    - name: Add /etc/consul.d/consul.json file into config directory
+      copy:
+        content: |
+                 {
+                   "server": true,
+                   "bootstrap_expect": 3,
+                   "raft_protocol": 3,
+                   "datacenter": "superduper",
+                   "raft_protocol": 3,
+                   "retry_join": ["192.168.13.35","192.168.13.36","192.168.13.37"],
+                   "advertise_addr": "$(hostname -I |grep -Eo '192\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')",
+                   "leave_on_terminate": true,
+                   "data_dir": "/opt/consul/data",
+                   "client_addr": "0.0.0.0",
+                   "log_level": "INFO",
+                   "ui": true,
+                   "acl_datacenter": "superduper",
+                   "acl_default_policy": "deny",
+                   "acl_down_policy": "allow",
+                   "acl_agent_master_token": "testtoken",
+                   "acl_master_token":"a4c878e5-a0eb-48ef-b6b4-00e18a146bf2"
+                 }
+        dest: /etc/consul.d/consul.json
+        mode: 0644
