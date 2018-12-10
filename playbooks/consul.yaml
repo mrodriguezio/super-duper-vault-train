@@ -94,11 +94,6 @@
       get_url:
         url: '{{ download_url }}'
         dest: /tmp/consul.zip
-    
-    - name: Install unzip
-      yum:
-        name: unzip
-        state: latest
 
     - name: Extracting consul
       unarchive:
