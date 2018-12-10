@@ -6,6 +6,7 @@
 
   vars:
     download_url: none
+    server_addr: 127.0.0.1
 
   tasks:
     - name: Updating /etc/systemd/system/consul.service file
@@ -121,7 +122,7 @@
                    "datacenter": "superduper",
                    "raft_protocol": 3,
                    "retry_join": ["192.168.13.35","192.168.13.36","192.168.13.37"],
-                   "advertise_addr": "$(hostname -I |grep -Eo '192\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')",
+                   "advertise_addr": "{{server_addr}}",
                    "leave_on_terminate": true,
                    "data_dir": "/opt/consul/data",
                    "client_addr": "0.0.0.0",

@@ -26,7 +26,10 @@ Vagrant.configure("2") do |config|
 
             server.vm.provision "ansible_local" do |ansible|
                 ansible.playbook = "/vagrant/playbooks/consul.yaml"
-                ansible.extra_vars = {download_url: get_stable_url('consul')}
+                ansible.extra_vars = {
+                    download_url: get_stable_url('consul'),
+                    server_addr: "192.168.13.3#{i}"
+                }
             end
 
             server.vm.provision "ansible_local" do |ansible|
@@ -43,7 +46,7 @@ Vagrant.configure("2") do |config|
                 server.vm.provision "shell", path: "provision_consul/scripts/acl/consul_acl.sh"
                 server.vm.provision "shell", path: "provision_consul/scripts/acl/consul_acl_vault.sh"
             else
-                server.vm.provision "shell", inline: "echo 'Not provisioning Consul ACLs via this host: '; hostname"
+                puts 'Not provisioning Consul ACLs via this host: instance%s' % i
             end
         end
     end
